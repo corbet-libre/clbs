@@ -349,3 +349,33 @@ macro_rules! suite {
 }
 suite!(memory, memory_fixture);
 suite!(libsql, sql_fixture);
+
+#[tokio::test]
+async fn nested_diagnostics_redact_identity_bearing_metadata() {
+    let (_, store) = common::memory_fixture().await;
+    let gate = Gate::new(store, TestVerifier::new("community-a"), TestClock::new(150));
+    let submission = sign(legal("sensitive-order-id"));
+    gate.record_legal(&submission).await.unwrap();
+    let record = gate.record("sensitive-order-id").await.unwrap().unwrap();
+    let revocation = clbs::Revocation::from(record.clone());
+    let state = gate.check("alice").await.unwrap();
+    let debug = format!(
+        "{:?} {:?} {:?} {:?} {:?}",
+        submission.order, submission.order.kind, record, revocation, state
+    );
+    for secret in [
+        "sensitive-order-id",
+        "community-a",
+        "alice",
+        "case-reference",
+        "root",
+        "court",
+    ] {
+        assert!(!debug.contains(secret), "identity leaked through Debug");
+    }
+    assert!(matches!(state, State::Red(_)));
+    // Authorized explicit serialization still carries the enforcement metadata.
+    let wire = serde_json::to_string(&state).unwrap();
+    assert!(wire.contains("sensitive-order-id"));
+    assert!(wire.contains("alice"));
+}

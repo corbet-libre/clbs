@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, fmt};
 
 use serde::{Deserialize, Serialize};
 
@@ -40,7 +40,7 @@ impl Period {
 }
 
 /// Source of a restriction; no automatic administrator or moderation ban exists.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrderKind {
     /// An external authority, authenticated by the verifier.
     Legal {
@@ -52,7 +52,7 @@ pub enum OrderKind {
 }
 
 /// Permanent metadata supplied by the caller and authenticated as one record.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Order {
     /// Target community, bound by the signature and storage capability.
     pub community: String,
@@ -157,7 +157,7 @@ pub enum Append {
 }
 
 /// Minimal entry for internal revocation snapshots; no references or entering actors.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Revocation {
     /// Community to which the entry applies.
     pub community: String,
@@ -221,5 +221,27 @@ pub(crate) fn timestamp(at: i64) -> Result<()> {
         Err(Error::Invalid("timestamp must be nonnegative"))
     } else {
         Ok(())
+    }
+}
+
+// Diagnostic formatting must not turn metadata or verdicts into an identity log.
+impl fmt::Debug for OrderKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Legal { .. } => "Legal([redacted])",
+            Self::SelfBan => "SelfBan",
+        })
+    }
+}
+
+impl fmt::Debug for Order {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Order([redacted])")
+    }
+}
+
+impl fmt::Debug for Revocation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Revocation([redacted])")
     }
 }
