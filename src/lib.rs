@@ -76,13 +76,16 @@ pub struct SystemClock;
 
 impl Clock for SystemClock {
     fn now(&self) -> Result<i64> {
-        SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|_| Error::Clock)?
-            .as_secs()
-            .try_into()
-            .map_err(|_| Error::Clock)
+        unix_seconds(SystemTime::now())
     }
+}
+
+fn unix_seconds(time: SystemTime) -> Result<i64> {
+    time.duration_since(SystemTime::UNIX_EPOCH)
+        .map_err(|_| Error::Clock)?
+        .as_secs()
+        .try_into()
+        .map_err(|_| Error::Clock)
 }
 
 /// Small community-bound persistence contract. Implementations are trusted.
@@ -209,3 +212,7 @@ impl<S: Store, V: Verifier, C: Clock> Gate<S, V, C> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "tests/clock.rs"]
+mod clock_tests;

@@ -379,3 +379,11 @@ async fn nested_diagnostics_redact_identity_bearing_metadata() {
     assert!(wire.contains("sensitive-order-id"));
     assert!(wire.contains("alice"));
 }
+
+#[tokio::test]
+async fn unknown_subject_has_no_action_restrictions_or_persisted_order() {
+    let store = clbs::MemoryStore::new("community-a").unwrap();
+    let gate = Gate::new(store, TestVerifier::new("community-a"), TestClock::new(150));
+    assert_eq!(gate.check_action("unknown", "post").await, Ok(State::Green));
+    assert_eq!(gate.record("unknown").await, Ok(None));
+}

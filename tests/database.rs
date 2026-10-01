@@ -305,7 +305,10 @@ async fn malformed_sql_types_and_valid_json_with_invalid_scope_fail_closed() {
         gate.record_legal(&sign(legal(id))).await.unwrap();
         scoped.execute(sql, crlt::params![value, id]).await.unwrap();
         assert_eq!(store.record(id).await, Err(Error::Storage), "{id}");
-        assert_eq!(gate.record_legal(&sign(legal(id))).await, Err(Error::Storage));
+        assert_eq!(
+            gate.record_legal(&sign(legal(id))).await,
+            Err(Error::Storage)
+        );
     }
     assert_eq!(store.revocations(150).await, Err(Error::Storage));
 }
