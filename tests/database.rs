@@ -245,3 +245,67 @@ fn invalid_community_identifiers_are_rejected() {
         assert!(MemoryStore::new(community).is_err());
     }
 }
+
+#[test]
+fn system_clock_returns_supported_samples_and_safe_errors() {
+    use clbs::{Clock, SystemClock};
+    let before = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let at = SystemClock.now().unwrap();
+    let after = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    assert!(at >= 0);
+    assert!((before..=after).contains(&(at as u64)));
+    for error in [
+        Error::Invalid("static validation failure"),
+        Error::Denied,
+        Error::CommunityMismatch,
+        Error::Conflict,
+        Error::Storage,
+        Error::Clock,
+    ] {
+        assert!(!error.to_string().is_empty());
+        assert!(std::error::Error::source(&error).is_none());
+    }
+    assert_eq!(format!("{:?}", clbs::OrderKind::SelfBan), "SelfBan");
+}
+
+#[tokio::test]
+async fn malformed_sql_types_and_valid_json_with_invalid_scope_fail_closed() {
+    let directory = tempfile::tempdir().unwrap();
+    let db = common::open(&directory.path().join("invalid-types.db")).await;
+    let store = LibsqlStore::new(&db, "community-a").unwrap();
+    let gate = Gate::new(
+        store.clone(),
+        TestVerifier::new("community-a"),
+        TestClock::new(150),
+    );
+    let scoped = db.community("community-a").unwrap();
+    for (id, sql, value) in [
+        (
+            "authority-type",
+            "UPDATE clbs_orders SET authority = ?1 WHERE id = ?2",
+            crlt::Value::Blob(vec![1, 2, 3]),
+        ),
+        (
+            "end-type",
+            "UPDATE clbs_orders SET ends_at = ?1 WHERE id = ?2",
+            crlt::Value::Text("not-a-timestamp".into()),
+        ),
+        (
+            "empty-scope",
+            "UPDATE clbs_orders SET scope = ?1 WHERE id = ?2",
+            crlt::Value::Text("{\"Actions\":[]}".into()),
+        ),
+    ] {
+        gate.record_legal(&sign(legal(id))).await.unwrap();
+        scoped.execute(sql, crlt::params![value, id]).await.unwrap();
+        assert_eq!(store.record(id).await, Err(Error::Storage), "{id}");
+        assert_eq!(gate.record_legal(&sign(legal(id))).await, Err(Error::Storage));
+    }
+    assert_eq!(store.revocations(150).await, Err(Error::Storage));
+}

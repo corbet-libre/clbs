@@ -102,3 +102,7 @@ impl Store for MemoryStore {
         Ok(counts)
     }
 }
+
+#[cfg(test)]
+#[path = "tests/memory.rs"]
+mod tests;
