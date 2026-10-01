@@ -2,7 +2,7 @@
 
 ## Binding scope
 
-`clbs` is the community legal veto under `cvld → cmnt → cgts` in the
+`clbs` is the community legal veto under `cvld → cmty → cgts` in the
 v0.4 architecture. It starts green. Only an authorized, verified legal order
 turns it red, with the exact ordered scope and period. Voluntary termination
 uses the same permanent switch after fresh confirmation by the subject.

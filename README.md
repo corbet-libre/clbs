@@ -3,7 +3,7 @@
 **Legal veto gate: green by default; verified legal orders and confirmed
 permanent self-bans apply their exact scope and period.**
 
-Native Rust library under `cvld → cmnt → cgts`. Stores permanent order metadata
+Native Rust library under `cvld → cmty → cgts`. Stores permanent order metadata
 through crlt, checks every action without recording access, and produces
 revocation entries and aggregate transparency counts. Interfaces may change.
 See [the implemented contract](docs/CONTRACT.md).
