@@ -11,7 +11,7 @@ publish = false
 include = ["Cargo.toml", "src/**", "docs/**", "README.md", "LICENSE", "LICENSE.md", "LICENSES/LGPL-3.0-only.txt", "LICENSES/LGPL-3.0-linking-exception.txt", "LICENSES/GPL-3.0-only.txt"]
 
 [dependencies]
-crlt = { git = "https://github.com/corbet-foss/crlt", rev = "80dc046d6ab53b3ea530c45bf3d7038c8b2c61b2" }
+crlt = { git = "https://github.com/corbet-foss/crlt", branch = "main" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
