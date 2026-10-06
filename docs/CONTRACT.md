@@ -110,6 +110,6 @@ suppression belong to the service; identifiers never appear in this output.
 
 clbs does not sign snapshots, advance epochs, delete account data, enforce
 uniqueness on re-registration, or terminate peer conversations. Those effects
-belong to the surrounding services. Global suspension is owned by `cglb`,
+belong to the surrounding services. Global suspension is owned by `cgbl`,
 not inferred from a community order. Order rescission and qualified-signature
 adapters remain future contract work; permanent self-bans have no reversal.
