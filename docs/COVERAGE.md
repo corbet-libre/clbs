@@ -16,10 +16,12 @@ change domain behavior. Add meaningful failure and round-trip tests. Document
 any genuinely unreachable defensive branch precisely before excluding it. This server leaf has no device target; native coverage makes no browser claim.
 
 First-party dependencies follow main. Their resolved full revisions remain in
-Cargo.lock, with exactly one source per first-party crate. Dependabot maintains
-committed snapshots; CI refreshes once per run and retains the tested snapshot.
-Auto-merge requires protected main and successful substantive checks on the
-exact current Dependabot head. It never executes PR code with write permissions.
+Cargo.lock, with exactly one source per first-party crate. Verification consumes
+the retained, committed lock snapshot with `--locked`; it does not refresh
+dependencies. An explicit dependency refresh is a separate operation: retain
+and commit the resolved snapshot, then validate that exact snapshot. A passing
+verification run establishes compatibility of the recorded revisions, not a
+new dependency-resolution or freshness claim.
 
 ## Emitted source metric
 
