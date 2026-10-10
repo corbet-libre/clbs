@@ -85,7 +85,7 @@ impl Order {
         serde_json::to_vec(&(domain, self)).map_err(|_| Error::Invalid("order encoding"))
     }
 
-    pub(crate) fn validate(&self) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         for value in [
             &self.community,
             &self.id,
@@ -141,6 +141,14 @@ pub struct SignedOrder {
 pub struct Record(pub(crate) Order);
 
 impl Record {
+    /// Restore metadata from a trusted caller-owned store after structural validation.
+    /// This does not verify a legal signature or self-ban authorization. Never use
+    /// it on member input; new submissions must pass through `Gate` verification.
+    pub fn restore_trusted(order: Order) -> Result<Self> {
+        order.validate()?;
+        Ok(Self(order))
+    }
+
     /// Borrow permanent metadata without exposing a mutable path.
     pub fn order(&self) -> &Order {
         &self.0
