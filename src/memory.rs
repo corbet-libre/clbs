@@ -57,6 +57,17 @@ impl Store for MemoryStore {
             .cloned())
     }
 
+    async fn self_ban_record(&self, subject: &str) -> Result<Option<Record>> {
+        model::text(subject)?;
+        Ok(self
+            .records
+            .read()
+            .map_err(|_| Error::Storage)?
+            .values()
+            .find(|record| record.0.subject == subject && record.0.kind == OrderKind::SelfBan)
+            .cloned())
+    }
+
     async fn active(&self, subject: &str, at: i64) -> Result<Vec<Record>> {
         model::text(subject)?;
         model::timestamp(at)?;

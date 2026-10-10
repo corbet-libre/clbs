@@ -91,6 +91,14 @@ pub trait Store: Send + Sync {
     fn append(&self, record: &Record) -> impl Future<Output = Result<Append>> + Send;
     /// Retrieve permanent metadata by exact order ID, including expired orders.
     fn record(&self, id: &str) -> impl Future<Output = Result<Option<Record>>> + Send;
+    /// Find one permanent self-ban for the exact subject, without wall-clock
+    /// filtering. Unsupported stores refuse rather than asserting absence.
+    fn self_ban_record(
+        &self,
+        _subject: &str,
+    ) -> impl Future<Output = Result<Option<Record>>> + Send {
+        std::future::ready(Err(Error::Storage))
+    }
     /// Return all active orders for a subject, ordered by ID.
     fn active(&self, subject: &str, at: i64) -> impl Future<Output = Result<Vec<Record>>> + Send;
     /// Return complete active restrictions for a revocation snapshot.
@@ -173,6 +181,25 @@ impl<S: Store, V: Verifier, C: Clock> Gate<S, V, C> {
     pub async fn record(&self, id: &str) -> Result<Option<Record>> {
         model::text(id)?;
         self.store.record(id).await
+    }
+
+    /// Read a permanent self-ban receipt, even if the wall clock moved back.
+    /// The service must authenticate the owner before exposing any result.
+    /// Absence is not admission, recovery authority or a legal green verdict.
+    pub async fn self_ban_record(&self, subject: &str) -> Result<Option<Record>> {
+        model::text(subject)?;
+        let record = self.store.self_ban_record(subject).await?;
+        if let Some(record) = &record {
+            let order = record.order();
+            order.validate().map_err(|_| Error::Storage)?;
+            if order.community != self.store.community()
+                || order.subject != subject
+                || order.kind != OrderKind::SelfBan
+            {
+                return Err(Error::Storage);
+            }
+        }
+        Ok(record)
     }
 
     /// Complete active entries for the caller's signed revocation snapshot.
