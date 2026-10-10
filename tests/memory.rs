@@ -1,3 +1,4 @@
+//! RAM store isolation, concurrent retry and clock contracts.
 mod common;
 use clbs::{Append, Counts, Error, Gate, MemoryStore, State, Store};
 use common::{TestClock, TestVerifier, legal, sign};
