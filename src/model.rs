@@ -85,6 +85,7 @@ impl Order {
         serde_json::to_vec(&(domain, self)).map_err(|_| Error::Invalid("order encoding"))
     }
 
+    /// Validate metadata structure; this does not establish signer authority.
     pub fn validate(&self) -> Result<()> {
         for value in [
             &self.community,
