@@ -10,7 +10,7 @@ See [the implemented contract](docs/CONTRACT.md).
 
 ## Dependency survey
 
-Surveyed crates.io listings and upstream GitHub sources on 2026-09-30:
+Surveyed crates.io listings and upstream sources on 2026-09-30:
 
 | Candidate | Choice and reason |
 |---|---|
