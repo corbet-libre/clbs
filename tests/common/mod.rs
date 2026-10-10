@@ -5,13 +5,8 @@ use std::sync::{
     atomic::{AtomicI64, Ordering},
 };
 
-use clbs::{
-    Clock, Error, LibsqlStore, Order, OrderKind, Period, Result, SCHEMA, Scope, SignedOrder,
-    Verifier,
-};
-use crlt::{Config, Db, Migration};
+use clbs::{Clock, Error, Order, OrderKind, Period, Result, Scope, SignedOrder, Verifier};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
-use tempfile::TempDir;
 
 #[derive(Clone)]
 pub struct TestClock(pub Arc<AtomicI64>);
@@ -127,25 +122,6 @@ pub fn sign(order: Order) -> SignedOrder {
     SignedOrder { order, proof }
 }
 
-pub async fn open(path: &std::path::Path) -> Db {
-    let url = format!("file://{}", path.display());
-    let db = Db::open(Config::new(url, "")).await.unwrap();
-    assert_eq!(
-        db.migrate(&[Migration::new(1, "clbs", SCHEMA)])
-            .await
-            .unwrap(),
-        1
-    );
-    db
-}
-
-pub async fn sql_fixture() -> (Option<TempDir>, LibsqlStore) {
-    let directory = tempfile::tempdir().unwrap();
-    let db = open(&directory.path().join("orders.db")).await;
-    let store = LibsqlStore::new(&db, "community-a").unwrap();
-    (Some(directory), store)
-}
-
-pub async fn memory_fixture() -> (Option<TempDir>, clbs::MemoryStore) {
-    (None, clbs::MemoryStore::new("community-a").unwrap())
+pub async fn memory_fixture() -> ((), clbs::MemoryStore) {
+    ((), clbs::MemoryStore::new("community-a").unwrap())
 }

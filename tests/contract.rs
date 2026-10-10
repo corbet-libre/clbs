@@ -348,7 +348,6 @@ macro_rules! suite {
     };
 }
 suite!(memory, memory_fixture);
-suite!(libsql, sql_fixture);
 
 #[tokio::test]
 async fn nested_diagnostics_redact_identity_bearing_metadata() {
@@ -386,4 +385,18 @@ async fn unknown_subject_has_no_action_restrictions_or_persisted_order() {
     let gate = Gate::new(store, TestVerifier::new("community-a"), TestClock::new(150));
     assert_eq!(gate.check_action("unknown", "post").await, Ok(State::Green));
     assert_eq!(gate.record("unknown").await, Ok(None));
+}
+
+#[test]
+fn trusted_storage_reconstruction_validates_metadata_without_authentication() {
+    let order = legal("restored");
+    assert_eq!(
+        clbs::Record::restore_trusted(order.clone())
+            .unwrap()
+            .order(),
+        &order
+    );
+    let mut invalid = order;
+    invalid.period.ends_at = Some(invalid.period.starts_at);
+    assert!(clbs::Record::restore_trusted(invalid).is_err());
 }

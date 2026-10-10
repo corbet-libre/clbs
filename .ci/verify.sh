@@ -3,6 +3,9 @@ set -euo pipefail
 export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
 export CARGO_TERM_COLOR="${CARGO_TERM_COLOR:-always}"
 
+# Resolve the changed dependency boundary on CI; retain the exact candidate lock.
+cargo update
+cp Cargo.lock "$ARTIFACT_ROOT/Cargo.lock"
 python3 .github/check-first-party.py
 rustc --version
 cargo fmt --all --check

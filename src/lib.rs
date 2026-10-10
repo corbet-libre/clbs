@@ -1,4 +1,4 @@
-//! Community legal veto with permanent order metadata and no request history.
+//! Community legal veto with caller-owned order metadata and no request history.
 //!
 //! Every action must call [`Gate::check_action`]. The service supplies a trusted
 //! [`Verifier`], a clock, and a community-bound [`Store`]. Signature evidence is
@@ -8,13 +8,11 @@
 
 mod memory;
 mod model;
-mod sql;
 
 use std::{future::Future, time::SystemTime};
 
 pub use memory::MemoryStore;
 pub use model::*;
-pub use sql::{LibsqlStore, SCHEMA};
 
 /// A failure never means that an action is permitted.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -37,13 +35,6 @@ pub enum Error {
     /// The clock cannot provide a supported Unix timestamp.
     #[error("clock unavailable")]
     Clock,
-}
-
-impl From<crlt::Error> for Error {
-    fn from(_: crlt::Error) -> Self {
-        // Database diagnostics can contain parameters or credentials.
-        Self::Storage
-    }
 }
 
 /// Library result, without sensitive backend error strings.

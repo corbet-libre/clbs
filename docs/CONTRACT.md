@@ -12,10 +12,10 @@ transparency counts.
 
 Cross-library rules: native Rust on current stable; LGPL-3.0-only WITH
 LGPL-3.0-linking-exception; survey maintained libraries first; no custom
-cryptographic primitives; storage through crlt; one database per community;
-every table has a community key and every application query uses an index.
+cryptographic primitives; RAM-only leaf with an explicit caller-owned atomic
+state port and no direct database connections.
 No login dates, request logs, raw gate data, or registry publication. Tests
-use real database round trips on GitHub Actions, without workstation builds.
+use real signatures and state transitions on CI, without workstation builds.
 
 ## Implemented API and authority boundary
 
@@ -41,9 +41,10 @@ use real database round trips on GitHub Actions, without workstation builds.
   at most 1024 bytes. No normalization, wildcard expansion, identity lookup,
   or hierarchy is inferred. Action sets contain 1–256 distinct actions.
   Proof envelopes contain 1–1048576 bytes.
-- `Record` is immutable, constructible only inside clbs, and cannot be
-  deserialized by callers. Custom storage implementations are trusted.
-  Raw database administration remains a privileged boundary.
+- `Record` is immutable and cannot be deserialized by callers. A trusted host
+  can reconstruct persisted metadata with `Record::restore_trusted`, which runs
+  public `Order::validate`. Structural validity is not legal authorization;
+  new submissions still require Gate verification. Stores are trusted ports.
 
 ## State and time
 
@@ -69,28 +70,22 @@ is needed. clbs cannot cancel actions already in progress.
 
 `Store` defines community binding, atomic append, exact-ID lookup, active
 subject orders, active revocation entries and aggregate counts. `MemoryStore`
-is an actual lock-protected in-memory implementation. `LibsqlStore` uses the
-ready crlt API pinned to a reviewed commit from main.
+is an actual lock-protected in-memory implementation. All database adapters,
+connections, credentials, migrations and durable transaction logic belong to the
+application. A database pool cannot be passed as a built-in leaf implementation.
+The host must guarantee community isolation and atomic append across processes.
 
-`SCHEMA` is trusted DDL to append to the composition root's complete crlt
-migration history. The service owns version numbers, connection configuration,
-credentials and database routing. It must migrate before constructing stores
-and after reopening. No leaf-owned migration version conflicts with other
-libraries. `clbs_orders` has a composite primary key `(community_id, id)` and
-indexes for subject/period, community/period and community/count queries.
-crlt injects community predicates and checks each application query plan.
-
-Append uses an immediate transaction. An identical order ID and metadata is
+The host must implement append atomically. An identical order ID and metadata is
 idempotent; changed metadata with that ID is a conflict. Even retries require
 verification. The signature envelope is excluded from idempotency comparisons
 and is never retained. There are no update, delete or unban methods. An
 uncertain remote commit must be reconciled by exact-ID lookup and a verified
 retry of identical metadata; no automatic write retry occurs.
 
-All reads are complete or error; crlt's configurable `max_rows` bounds memory.
-Aggregate queries return only four counts, while scanning the community's
-covering count index. Large revocation snapshots need an adequate row limit;
-there is currently no pagination protocol or durable notification outbox.
+All reads are complete or error. Hosts must enforce bounded allocation without
+silently truncating active restrictions. Large revocation snapshots need an
+adequate host row limit; no pagination protocol or durable notification outbox
+is implemented here. RAM stores cannot promise durability across restarts.
 
 ## Outputs and privacy
 
