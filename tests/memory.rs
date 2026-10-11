@@ -1,19 +1,11 @@
 //! RAM store isolation, concurrent retry and clock contracts.
 mod common;
 use clbs::{Append, Counts, Error, Gate, MemoryStore, State, Store};
-use common::{TestClock, TestVerifier, legal, sign};
+use common::{TestVerifier, legal, sign};
 
 async fn isolation<S: Store + Clone>(first: S, second: S) {
-    let a = Gate::new(
-        first.clone(),
-        TestVerifier::new("community-a"),
-        TestClock::new(150),
-    );
-    let b = Gate::new(
-        second.clone(),
-        TestVerifier::new("community-b"),
-        TestClock::new(150),
-    );
+    let a = Gate::new(first.clone(), TestVerifier::new("community-a"));
+    let b = Gate::new(second.clone(), TestVerifier::new("community-b"));
     a.record_legal(&sign(legal("shared-id"))).await.unwrap();
     assert_eq!(b.check("alice").await.unwrap(), State::Green);
     assert_eq!(b.record("shared-id").await.unwrap(), None);
@@ -52,7 +44,7 @@ async fn concurrent_retries_commit_one_record() {
     for _ in 0..8 {
         let clone = store.clone();
         tasks.spawn(async move {
-            Gate::new(clone, TestVerifier::new("community-a"), TestClock::new(150))
+            Gate::new(clone, TestVerifier::new("community-a"))
                 .record_legal(&sign(legal("same")))
                 .await
         });
@@ -66,7 +58,7 @@ async fn concurrent_retries_commit_one_record() {
         }
     }
     assert_eq!((inserted, unchanged), (1, 7));
-    assert_eq!(store.counts(150).await.unwrap().legal_orders, 1);
+    assert_eq!(store.counts().await.unwrap().legal_orders, 1);
 }
 
 #[test]

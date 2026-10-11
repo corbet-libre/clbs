@@ -1,7 +1,7 @@
 # clbs
 
-**Legal veto gate: green by default; verified legal orders and confirmed
-permanent self-bans apply their exact scope and period.**
+**Legal veto gate: green by default; a verified legal order or a confirmed
+self-ban blocks a subject permanently, for every action.**
 
 Reusable Rust library used by `cvld → cmty → cgts`. Submits selected order metadata
 to a caller-owned atomic store, checks every action without recording access, and produces
@@ -32,13 +32,13 @@ boundary without assuming sibling APIs. Snapshot signing belongs to the caller.
 ## Integration
 
 ```rust,no_run
-use clbs::{Gate, Store, SystemClock, Verifier, State};
+use clbs::{Gate, Store, Verifier, State};
 
 async fn example(store: impl Store, verifier: impl Verifier) -> Result<(), Box<dyn std::error::Error>> {
-    let gate = Gate::new(store, verifier, SystemClock);
-    match gate.check_action("community-pseudonym", "publish").await? {
+    let gate = Gate::new(store, verifier);
+    match gate.check("community-pseudonym").await? {
         State::Green => { /* Perform the action. */ }
-        State::Red(_) => { /* Refuse within the returned scope. */ }
+        State::Red(_) => { /* Refuse: the block is permanent and total. */ }
     }
     Ok(())
 }
@@ -49,8 +49,7 @@ legal orders or fresh passkey-confirmed self-bans. Supply a `SignedOrder` to
 `record_legal` or `self_ban`; raw evidence is never stored. Retries with identical
 metadata return `Append::Unchanged`; conflicts never overwrite an order.
 
-Use `check(subject)` for all active restrictions, `check_action` for an exact
-action, `record(id)` for authorized audit, `revocations()` for internal signed
+Use `check(subject)` before every action, `record(id)` for authorized audit, `revocations()` for internal signed
 snapshots, and `counts()` for subject-free order totals. Storage/clock errors
 must refuse or defer actions. `MemoryStore` is RAM-only and process-local;
 production durability and cross-process isolation belong to the application's
@@ -63,13 +62,12 @@ It must use maintained signature/passkey implementations and explicit trust;
 this crate does not claim qualified-signature verification. Provider acquisition,
 credentials and any billable dispatch remain outside this local verification
 port. Such acquisition needs a separate explicit price/budget authorization.
-Local scope/period checks do not call providers, acquire quotes or trigger
+Local checks do not call providers, acquire quotes or trigger
 fallback. Host compute/storage may cost money. No default numerical quotas,
 jurisdiction or legal-authority rules are invented.
 
-For deterministic local simulation, use MemoryStore, an injected Clock and
-real signatures under explicit test trust. The same scope, time, overlap and
-idempotency logic executes; a test verifier must never be installed as production
+For deterministic local simulation, use MemoryStore and real signatures under
+explicit test trust. The same overlap and idempotency logic executes; a test verifier must never be installed as production
 trust. No production proof type is minted by a simulation API. Raw evidence stays
 in RAM, never goes to Store and is not logged. Host swap/dumps and temporary
 upstream parsing copies remain outside the library's control.
@@ -78,15 +76,15 @@ upstream parsing copies remain outside the library's control.
 
 CI runs formatting, warning-free Clippy, native tests and complete source line
 and branch coverage. Tests cover real signed orders, invalid metadata, exact
-scope/period checks, isolated RAM stores, concurrent idempotent append and safe
+permanent blocks, isolated RAM stores, concurrent idempotent append and safe
 errors. Database adapters, database tests, migrations and optional remote probes
 belong to the application host. No live provider or database service was called.
 
 ## Open integration work
 
 Qualified e-signature/authority and fresh-passkey verifier adapters; signed
-revocation publication and scheduled-order refresh; coordination between a
-check and its action; rescission semantics for legal orders. See the contract
+revocation publication; coordination between a check and its action. There is
+no rescission, expiry or per-action scope: every block is permanent. See the contract
 for row-limit behavior and the surrounding service's responsibilities.
 
 ## License

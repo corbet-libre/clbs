@@ -1,43 +1,8 @@
-use std::{collections::BTreeSet, fmt};
+use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
-
-/// Exact action scope. No wildcard, prefix matching, or implicit hierarchy.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Scope {
-    /// Every action in this community.
-    All,
-    /// A nonempty set of exact, case-sensitive action identifiers.
-    Actions(BTreeSet<String>),
-}
-
-impl Scope {
-    /// Whether this scope covers the given exact action.
-    pub fn covers(&self, action: &str) -> bool {
-        match self {
-            Self::All => true,
-            Self::Actions(actions) => actions.contains(action),
-        }
-    }
-}
-
-/// Half-open validity interval `[starts_at, ends_at)`, in Unix seconds.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Period {
-    /// Inclusive start; zero is valid.
-    pub starts_at: i64,
-    /// Exclusive end; `None` means permanent, without a sentinel timestamp.
-    pub ends_at: Option<i64>,
-}
-
-impl Period {
-    /// Determine activity without arithmetic or overflow at timestamp boundaries.
-    pub fn contains(&self, at: i64) -> bool {
-        self.starts_at <= at && self.ends_at.is_none_or(|end| at < end)
-    }
-}
 
 /// Source of a restriction; no automatic administrator or moderation ban exists.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +17,8 @@ pub enum OrderKind {
 }
 
 /// Permanent metadata supplied by the caller and authenticated as one record.
+/// A block is always permanent and covers every action: it has no scope, no
+/// start and no end, and nothing here can ever release it.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Order {
     /// Target community, bound by the signature and storage capability.
@@ -66,10 +33,6 @@ pub struct Order {
     pub entered_by: String,
     /// Authenticated source of authority.
     pub kind: OrderKind,
-    /// Actions covered by the order, applied literally.
-    pub scope: Scope,
-    /// Exact ordered period; expiration never deletes the record.
-    pub period: Period,
 }
 
 impl Order {
@@ -96,32 +59,11 @@ impl Order {
         ] {
             text(value)?;
         }
-        timestamp(self.period.starts_at)?;
-        if self
-            .period
-            .ends_at
-            .is_some_and(|end| end <= self.period.starts_at)
-        {
-            return Err(Error::Invalid("end must be after start"));
-        }
-        if let Scope::Actions(actions) = &self.scope {
-            if actions.is_empty() || actions.len() > 256 {
-                return Err(Error::Invalid("scope must contain 1 to 256 actions"));
-            }
-            for action in actions {
-                text(action)?;
-            }
-        }
         match &self.kind {
             OrderKind::Legal { authority } => text(authority)?,
             OrderKind::SelfBan => {
-                if self.scope != Scope::All
-                    || self.period.ends_at.is_some()
-                    || self.entered_by != self.subject
-                {
-                    return Err(Error::Invalid(
-                        "self-ban must be permanent, all actions, and self-entered",
-                    ));
+                if self.entered_by != self.subject {
+                    return Err(Error::Invalid("self-ban must be self-entered"));
                 }
             }
         }
@@ -174,10 +116,6 @@ pub struct Revocation {
     pub order_id: String,
     /// A community pseudonym. Revocation lists are not transparency reports.
     pub subject: String,
-    /// Preserve this exact action scope when enforcing the snapshot.
-    pub scope: Scope,
-    /// Consumers must also enforce this interval, even after publication.
-    pub period: Period,
 }
 
 impl From<Record> for Revocation {
@@ -187,8 +125,6 @@ impl From<Record> for Revocation {
             community: order.community,
             order_id: order.id,
             subject: order.subject,
-            scope: order.scope,
-            period: order.period,
         }
     }
 }
@@ -196,23 +132,19 @@ impl From<Record> for Revocation {
 /// A check verdict; errors are separate and must never be treated as green.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum State {
-    /// No applicable active order.
+    /// No order for this subject.
     Green,
-    /// One or more active restrictions; scopes can overlap.
+    /// One or more permanent blocks; never released.
     Red(Vec<Revocation>),
 }
 
 /// Aggregate counts of orders, never distinct subjects or identifiers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Counts {
-    /// All legal orders, including future and expired ones.
+    /// All permanent legal orders.
     pub legal_orders: u64,
     /// All permanent self-bans.
     pub self_bans: u64,
-    /// Legal orders active at the check time.
-    pub active_legal_orders: u64,
-    /// Self-bans active at the check time.
-    pub active_self_bans: u64,
 }
 
 pub(crate) fn text(value: &str) -> Result<()> {
@@ -220,14 +152,6 @@ pub(crate) fn text(value: &str) -> Result<()> {
         Err(Error::Invalid(
             "identifiers must be nonblank, at most 1024 bytes, and contain no controls",
         ))
-    } else {
-        Ok(())
-    }
-}
-
-pub(crate) fn timestamp(at: i64) -> Result<()> {
-    if at < 0 {
-        Err(Error::Invalid("timestamp must be nonnegative"))
     } else {
         Ok(())
     }

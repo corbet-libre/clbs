@@ -68,46 +68,35 @@ impl Store for MemoryStore {
             .cloned())
     }
 
-    async fn active(&self, subject: &str, at: i64) -> Result<Vec<Record>> {
+    async fn orders(&self, subject: &str) -> Result<Vec<Record>> {
         model::text(subject)?;
-        model::timestamp(at)?;
         Ok(self
             .records
             .read()
             .map_err(|_| Error::Storage)?
             .values()
-            .filter(|record| record.0.subject == subject && record.0.period.contains(at))
+            .filter(|record| record.0.subject == subject)
             .cloned()
             .collect())
     }
 
-    async fn revocations(&self, at: i64) -> Result<Vec<Revocation>> {
-        model::timestamp(at)?;
+    async fn revocations(&self) -> Result<Vec<Revocation>> {
         Ok(self
             .records
             .read()
             .map_err(|_| Error::Storage)?
             .values()
-            .filter(|record| record.0.period.contains(at))
             .cloned()
             .map(Revocation::from)
             .collect())
     }
 
-    async fn counts(&self, at: i64) -> Result<Counts> {
-        model::timestamp(at)?;
+    async fn counts(&self) -> Result<Counts> {
         let mut counts = Counts::default();
         for record in self.records.read().map_err(|_| Error::Storage)?.values() {
-            let active = u64::from(record.0.period.contains(at));
             match record.0.kind {
-                OrderKind::Legal { .. } => {
-                    counts.legal_orders += 1;
-                    counts.active_legal_orders += active;
-                }
-                OrderKind::SelfBan => {
-                    counts.self_bans += 1;
-                    counts.active_self_bans += active;
-                }
+                OrderKind::Legal { .. } => counts.legal_orders += 1,
+                OrderKind::SelfBan => counts.self_bans += 1,
             }
         }
         Ok(counts)

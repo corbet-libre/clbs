@@ -1,30 +1,7 @@
 #![allow(dead_code)]
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicI64, Ordering},
-};
-
-use clbs::{Clock, Error, Order, OrderKind, Period, Result, Scope, SignedOrder, Verifier};
+use clbs::{Error, Order, OrderKind, Result, SignedOrder, Verifier};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
-
-#[derive(Clone)]
-pub struct TestClock(pub Arc<AtomicI64>);
-
-impl TestClock {
-    pub fn new(at: i64) -> Self {
-        Self(Arc::new(AtomicI64::new(at)))
-    }
-    pub fn set(&self, at: i64) {
-        self.0.store(at, Ordering::SeqCst);
-    }
-}
-
-impl Clock for TestClock {
-    fn now(&self) -> Result<i64> {
-        Ok(self.0.load(Ordering::SeqCst))
-    }
-}
 
 // Test-only verifier for authentic signatures and a fixed authorized test actor.
 // It is not a qualified e-signature or passkey adapter. No clbs logic is mocked.
@@ -89,11 +66,6 @@ pub fn legal(id: &str) -> Order {
         kind: OrderKind::Legal {
             authority: "court".into(),
         },
-        scope: Scope::Actions(["publish".into()].into()),
-        period: Period {
-            starts_at: 100,
-            ends_at: Some(200),
-        },
     }
 }
 
@@ -101,11 +73,6 @@ pub fn ban(id: &str) -> Order {
     Order {
         kind: OrderKind::SelfBan,
         entered_by: "alice".into(),
-        scope: Scope::All,
-        period: Period {
-            starts_at: 100,
-            ends_at: None,
-        },
         ..legal(id)
     }
 }
