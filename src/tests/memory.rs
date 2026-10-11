@@ -28,6 +28,7 @@ async fn poisoned_store_refuses_every_read_and_write() {
     assert_eq!(store.append(&record()).await, Err(Error::Storage));
     assert_eq!(store.record("order-a").await, Err(Error::Storage));
     assert_eq!(store.orders("subject-a").await, Err(Error::Storage));
+    assert_eq!(store.self_ban_record("subject-a").await, Err(Error::Storage));
     assert_eq!(store.revocations().await, Err(Error::Storage));
     assert_eq!(store.counts().await, Err(Error::Storage));
 }
