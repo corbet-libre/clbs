@@ -6,6 +6,7 @@ export CARGO_TERM_COLOR="${CARGO_TERM_COLOR:-always}"
 
 python3 .github/check-first-party.py
 rustc --version
+bash .ci/update-our-crates.sh
 cargo fmt --all --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
