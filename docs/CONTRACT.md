@@ -15,7 +15,7 @@ LGPL-3.0-linking-exception; survey maintained libraries first; no custom
 cryptographic primitives; RAM-only leaf with an explicit caller-owned atomic
 state port and no direct database connections.
 No login dates, request logs, raw gate data, or registry publication. Tests
-use real signatures and state transitions on CI, without workstation builds.
+use real signatures and state transitions on CI.
 
 ## Implemented API and authority boundary
 
