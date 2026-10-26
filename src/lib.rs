@@ -100,7 +100,9 @@ pub trait Store: Send + Sync {
     ) -> impl Future<Output = Result<Option<Record>>> + Send {
         std::future::ready(Err(Error::Storage))
     }
-    /// Return all orders for a subject, ordered by ID.
+    /// Return all orders for a subject, across scopes, ordered by ID.
+    /// `Gate::check` considers only member-scoped orders; community checks
+    /// use `community_legal_state` over these records.
     fn orders(&self, subject: &str) -> impl Future<Output = Result<Vec<Record>>> + Send;
     /// Return every permanent block for a revocation snapshot.
     fn revocations(&self) -> impl Future<Output = Result<Vec<Revocation>>> + Send;
@@ -121,6 +123,9 @@ impl<S: Store, V: Verifier> Gate<S, V> {
     }
 
     /// Validate and permanently record a signed legal order.
+    ///
+    /// Accepts member scope and community scope through the same authorized
+    /// path and the same authority; no new authority type exists.
     pub async fn record_legal(&self, submission: &SignedOrder) -> Result<Append> {
         self.validate_submission(submission)?;
         if !matches!(submission.order.kind, OrderKind::Legal { .. }) {
@@ -131,26 +136,35 @@ impl<S: Store, V: Verifier> Gate<S, V> {
     }
 
     /// Record a freshly confirmed permanent self-ban of all actions.
+    /// Member-only: a community cannot burn itself.
     pub async fn self_ban(&self, submission: &SignedOrder) -> Result<Append> {
         self.validate_submission(submission)?;
         if submission.order.kind != OrderKind::SelfBan {
             return Err(Error::Invalid("expected a self-ban"));
         }
+        if submission.order.scope != Scope::Member {
+            return Err(Error::Invalid("self-ban is member-only"));
+        }
         self.verifier.verify_self_ban(submission).await?;
         self.store.append(&Record(submission.order.clone())).await
     }
 
-    /// Check a subject before acting. Unknown subjects are green without a write.
+    /// Check a member before acting. Unknown subjects are green without a write.
     /// Red carries the permanent blocks, which cover every action.
+    /// Only member-scoped orders are considered; community blocks never
+    /// affect member checks (use `community_legal_state` for communities).
     pub async fn check(&self, subject: &str) -> Result<State> {
         model::text(subject)?;
         let records = self.store.orders(subject).await?;
-        if records.is_empty() {
+        let hits: Vec<Revocation> = records
+            .into_iter()
+            .filter(|record| record.order().scope == Scope::Member)
+            .map(Revocation::from)
+            .collect();
+        if hits.is_empty() {
             Ok(State::Green)
         } else {
-            Ok(State::Red(
-                records.into_iter().map(Revocation::from).collect(),
-            ))
+            Ok(State::Red(hits))
         }
     }
 

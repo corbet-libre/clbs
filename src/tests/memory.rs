@@ -1,5 +1,5 @@
 use super::*;
-use crate::Order;
+use crate::{Order, Scope};
 
 fn record() -> Record {
     Record(Order {
@@ -11,6 +11,7 @@ fn record() -> Record {
         kind: OrderKind::Legal {
             authority: "court-a".into(),
         },
+        scope: Scope::Member,
     })
 }
 

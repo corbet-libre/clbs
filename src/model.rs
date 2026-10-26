@@ -16,16 +16,33 @@ pub enum OrderKind {
     SelfBan,
 }
 
+/// Target scope of a restriction; a legal order may target a member or a
+/// community. Self-burn stays member-only. The scope is serialized with the
+/// order, so the verifier's signature binds it; orders stored before scopes
+/// existed read back as member scope.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Scope {
+    /// A community pseudonym. This is the only scope self-burn may use.
+    #[default]
+    Member,
+    /// The community itself, for a wholesale illegal community.
+    Community,
+}
+
 /// Permanent metadata supplied by the caller and authenticated as one record.
 /// A block is always permanent and covers every action: it has no scope, no
-/// start and no end, and nothing here can ever release it.
+/// start and no end, and nothing here can ever release it. The target scope
+/// decides what the block covers: a member block covers that member, a
+/// community block covers the community itself.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Order {
     /// Target community, bound by the signature and storage capability.
+    /// For community scope this equals the blocked community itself.
     pub community: String,
     /// Caller-assigned stable, community-unique idempotency key.
     pub id: String,
-    /// Opaque community pseudonym; never resolved to a real-world identity here.
+    /// Opaque community pseudonym for member scope, or the community itself
+    /// for community scope; never resolved to a real-world identity here.
     pub subject: String,
     /// External reference only; no order document or raw gate evidence.
     pub reference: String,
@@ -33,6 +50,9 @@ pub struct Order {
     pub entered_by: String,
     /// Authenticated source of authority.
     pub kind: OrderKind,
+    /// Whether the order targets a member or the community itself.
+    #[serde(default)]
+    pub scope: Scope,
 }
 
 impl Order {
@@ -59,9 +79,20 @@ impl Order {
         ] {
             text(value)?;
         }
+        // A community order is self-targeting: it names the community it is
+        // stored under, so it can never leak into another community's store.
+        if self.scope == Scope::Community && self.subject != self.community {
+            return Err(Error::Invalid(
+                "community orders must target their own community",
+            ));
+        }
         match &self.kind {
             OrderKind::Legal { authority } => text(authority)?,
             OrderKind::SelfBan => {
+                // Communities hold no passkey; only members can burn themselves.
+                if self.scope != Scope::Member {
+                    return Err(Error::Invalid("self-ban is member-only"));
+                }
                 if self.entered_by != self.subject {
                     return Err(Error::Invalid("self-ban must be self-entered"));
                 }
@@ -136,6 +167,35 @@ pub enum State {
     Green,
     /// One or more permanent blocks; never released.
     Red(Vec<Revocation>),
+}
+
+/// Pure community legality check over already-fetched records.
+///
+/// Returns `Green` when no community-scoped legal order targets `community`,
+/// and `Red` carrying those orders otherwise. Member records never affect the
+/// result, exactly as community records never affect member checks. Red is
+/// permanent: nothing here can release it. An invalid id matches nothing and
+/// reads green.
+pub fn community_legal_state(community: &str, records: &[Record]) -> State {
+    if text(community).is_err() {
+        return State::Green;
+    }
+    let hits: Vec<Revocation> = records
+        .iter()
+        .filter(|record| {
+            let order = record.order();
+            order.scope == Scope::Community
+                && order.subject == community
+                && matches!(order.kind, OrderKind::Legal { .. })
+        })
+        .cloned()
+        .map(Revocation::from)
+        .collect();
+    if hits.is_empty() {
+        State::Green
+    } else {
+        State::Red(hits)
+    }
 }
 
 /// Aggregate counts of orders, never distinct subjects or identifiers.

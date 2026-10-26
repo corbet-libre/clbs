@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use clbs::{Error, Order, OrderKind, Result, SignedOrder, Verifier};
+use clbs::{Error, Order, OrderKind, Result, Scope, SignedOrder, Verifier};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 
 // Test-only verifier for authentic signatures and a fixed authorized test actor.
@@ -66,6 +66,7 @@ pub fn legal(id: &str) -> Order {
         kind: OrderKind::Legal {
             authority: "court".into(),
         },
+        scope: Scope::Member,
     }
 }
 
