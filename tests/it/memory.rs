@@ -1,7 +1,6 @@
 //! RAM store isolation, concurrent retry and clock contracts.
-mod common;
+use crate::common::{TestVerifier, legal, sign};
 use clbs::{Append, Counts, Error, Gate, MemoryStore, State, Store};
-use common::{TestVerifier, legal, sign};
 
 async fn isolation<S: Store + Clone>(first: S, second: S) {
     let a = Gate::new(first.clone(), TestVerifier::new("community-a"));

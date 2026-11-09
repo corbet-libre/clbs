@@ -1,8 +1,8 @@
 //! Shared behavior contract exercised against memory and real libSQL storage.
-mod common;
 
+use crate::common;
+use crate::common::{TestVerifier, ban, legal, sign};
 use clbs::{Append, Counts, Error, Gate, OrderKind, SignedOrder, State, Store};
-use common::{TestVerifier, ban, legal, sign};
 
 fn gate<S: Store + Clone>(store: S) -> Gate<S, TestVerifier> {
     Gate::new(store, TestVerifier::new("community-a"))

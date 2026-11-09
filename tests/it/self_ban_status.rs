@@ -1,7 +1,6 @@
 //! Permanent self-ban receipts are exact, and a store without receipt lookup refuses.
-mod common;
+use crate::common::*;
 use clbs::{Gate, MemoryStore};
-use common::*;
 
 struct LegacyStore(MemoryStore);
 impl clbs::Store for LegacyStore {

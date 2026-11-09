@@ -3,10 +3,10 @@
 //! Tests first for the P4 data-model lane: a legal record may target scope
 //! `Community(id)` as well as `Member(id)`, with the same permanence rules
 //! (red is permanent, the record is kept, self-burn stays member-only).
-mod common;
 
+use crate::common;
+use crate::common::{TestVerifier, legal, sign};
 use clbs::{Append, Gate, MemoryStore, Order, Record, Scope, State, Store};
-use common::{TestVerifier, legal, sign};
 
 fn gate(store: MemoryStore) -> Gate<MemoryStore, TestVerifier> {
     Gate::new(store, TestVerifier::new("community-a"))
