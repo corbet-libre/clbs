@@ -142,9 +142,7 @@ impl<S: Store, V: Verifier> Gate<S, V> {
         if submission.order.kind != OrderKind::SelfBan {
             return Err(Error::Invalid("expected a self-ban"));
         }
-        if submission.order.scope != Scope::Member {
-            return Err(Error::Invalid("self-ban is member-only"));
-        }
+        // Member-only: `validate_submission` already refused a community-scoped self-ban (`Order::validate`, model.rs).
         self.verifier.verify_self_ban(submission).await?;
         self.store.append(&Record(submission.order.clone())).await
     }
